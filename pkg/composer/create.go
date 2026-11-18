@@ -88,13 +88,13 @@ func (c *Composer) Create(ctx context.Context, opt CreateOptions, services []str
 
 	// prepare other components (networks, volumes, configs)
 	for shortName := range c.project.Networks {
-		if err := c.upNetwork(ctx, shortName); err != nil {
+		if _, err := c.upNetwork(ctx, shortName); err != nil {
 			return err
 		}
 	}
 
 	for shortName := range c.project.Volumes {
-		if err := c.upVolume(ctx, shortName); err != nil {
+		if _, err := c.upVolume(ctx, shortName); err != nil {
 			return err
 		}
 	}

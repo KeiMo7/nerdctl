@@ -146,14 +146,19 @@ func warnUnknownFields(svc types.ServiceConfig) {
 	for depName, dep := range svc.DependsOn {
 		if unknown := reflectutil.UnknownNonEmptyFields(&dep,
 			"Condition",
+			"Required",
+			"Extensions",
 		); len(unknown) > 0 {
 			log.L.Warnf("Ignoring: service %s: depends_on: %s: %+v", svc.Name, depName, unknown)
 		}
 		switch dep.Condition {
-		case "", types.ServiceConditionStarted:
+		case "", types.ServiceConditionStarted, types.ServiceConditionHealthy, types.ServiceConditionCompletedSuccessfully:
 			// NOP
 		default:
 			log.L.Warnf("Ignoring: service %s: depends_on: %s: condition %s", svc.Name, depName, dep.Condition)
+		}
+		if dep.Restart {
+			log.L.Warnf("Ignoring: service %s: depends_on: %s: restart", svc.Name, depName)
 		}
 	}
 

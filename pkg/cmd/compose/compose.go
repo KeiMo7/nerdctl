@@ -59,11 +59,14 @@ func New(client *containerd.Client, globalOptions types.GlobalCommandOptions, op
 	if err != nil {
 		return nil, err
 	}
-	networkConfigs, err := cniEnv.NetworkList()
-	if err != nil {
+	if _, err := cniEnv.NetworkList(); err != nil {
 		return nil, err
 	}
 	options.NetworkExists = func(netName string) (bool, error) {
+		networkConfigs, err := cniEnv.NetworkList()
+		if err != nil {
+			return false, err
+		}
 		for _, f := range networkConfigs {
 			if f.Name == netName {
 				return true, nil

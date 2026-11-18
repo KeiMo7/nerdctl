@@ -62,13 +62,13 @@ type RunOptions struct {
 
 func (c *Composer) Run(ctx context.Context, ro RunOptions) error {
 	for shortName := range c.project.Networks {
-		if err := c.upNetwork(ctx, shortName); err != nil {
+		if _, err := c.upNetwork(ctx, shortName); err != nil {
 			return err
 		}
 	}
 
 	for shortName := range c.project.Volumes {
-		if err := c.upVolume(ctx, shortName); err != nil {
+		if _, err := c.upVolume(ctx, shortName); err != nil {
 			return err
 		}
 	}

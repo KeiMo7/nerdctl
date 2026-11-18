@@ -26,14 +26,14 @@ import (
 	"github.com/containerd/nerdctl/v2/pkg/reflectutil"
 )
 
-func (c *Composer) upVolume(ctx context.Context, shortName string) error {
+func (c *Composer) upVolume(ctx context.Context, shortName string) (bool, error) {
 	vol, ok := c.project.Volumes[shortName]
 	if !ok {
-		return fmt.Errorf("invalid volume name %q", shortName)
+		return false, fmt.Errorf("invalid volume name %q", shortName)
 	}
 	if vol.External {
 		// NOP
-		return nil
+		return false, nil
 	}
 
 	if unknown := reflectutil.UnknownNonEmptyFields(&vol, "Name"); len(unknown) > 0 {
@@ -47,7 +47,7 @@ func (c *Composer) upVolume(ctx context.Context, shortName string) error {
 	// This cannot be fixed without getting rid of the whole "shell-out" approach entirely.
 	volExists, err := c.VolumeExists(fullName)
 	if err != nil {
-		return err
+		return false, err
 	} else if !volExists {
 		log.G(ctx).Infof("Creating volume %s", fullName)
 		//add metadata labels to volume https://github.com/compose-spec/compose-spec/blob/master/spec.md#labels-2
@@ -57,8 +57,9 @@ func (c *Composer) upVolume(ctx context.Context, shortName string) error {
 			fullName,
 		}
 		if err := c.runNerdctlCmd(ctx, append([]string{"volume", "create"}, createArgs...)...); err != nil {
-			return err
+			return false, err
 		}
+		return true, nil
 	}
-	return nil
+	return false, nil
 }

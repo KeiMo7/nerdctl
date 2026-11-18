@@ -19,6 +19,8 @@ package compose
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 
@@ -41,6 +43,7 @@ func upCommand() *cobra.Command {
 	cmd.Flags().Bool("abort-on-container-exit", false, "Stops all containers if any container was stopped. Incompatible with -d.")
 	cmd.Flags().BoolP("detach", "d", false, "Detached mode: Run containers in the background. Incompatible with --abort-on-container-exit.")
 	cmd.Flags().Bool("no-build", false, "Don't build an image, even if it's missing.")
+	cmd.Flags().Bool("no-deps", false, "Don't start linked services.")
 	cmd.Flags().Bool("no-color", false, "Produce monochrome output")
 	cmd.Flags().Bool("no-log-prefix", false, "Don't print prefix in logs")
 	cmd.Flags().Bool("build", false, "Build images before starting containers.")
@@ -71,6 +74,10 @@ func upAction(cmd *cobra.Command, services []string) error {
 		return err
 	}
 	noBuild, err := cmd.Flags().GetBool("no-build")
+	if err != nil {
+		return err
+	}
+	noDeps, err := cmd.Flags().GetBool("no-deps")
 	if err != nil {
 		return err
 	}
@@ -133,7 +140,9 @@ func upAction(cmd *cobra.Command, services []string) error {
 		scale[parts[0]] = replicas
 	}
 
-	client, ctx, cancel, err := clientutil.NewClient(cmd.Context(), globalOptions.Namespace, globalOptions.Address)
+	signalCtx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
+	defer stop()
+	client, ctx, cancel, err := clientutil.NewClient(signalCtx, globalOptions.Namespace, globalOptions.Address)
 	if err != nil {
 		return err
 	}
@@ -152,6 +161,7 @@ func upAction(cmd *cobra.Command, services []string) error {
 		AbortOnContainerExit: abortOnContainerExit,
 		Detach:               detach,
 		NoBuild:              noBuild,
+		NoDeps:               noDeps,
 		NoColor:              noColor,
 		NoLogPrefix:          noLogPrefix,
 		ForceBuild:           build,

@@ -150,29 +150,28 @@ func (c *Composer) runNerdctlCmd(ctx context.Context, args ...string) error {
 
 // Services returns the parsed Service objects in dependency order.
 func (c *Composer) Services(ctx context.Context, svcs ...string) ([]*serviceparser.Service, error) {
-	var services []*serviceparser.Service
+	plan, err := newDependencyPlan(c.project, svcs, false)
+	if err != nil {
+		return nil, err
+	}
 
-	if err := c.project.ForEachService(svcs, func(name string, svc *compose.ServiceConfig) error {
-		parsed, err := serviceparser.Parse(c.project, *svc)
+	services := make([]*serviceparser.Service, 0, len(plan.order))
+	for _, name := range plan.order {
+		svc := plan.services[name]
+		parsed, err := serviceparser.Parse(c.project, svc)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		services = append(services, parsed)
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 	return services, nil
 }
 
 // ServiceNames returns service names in dependency order.
 func (c *Composer) ServiceNames(svcs ...string) ([]string, error) {
-	var names []string
-	if err := c.project.ForEachService(svcs, func(name string, svc *compose.ServiceConfig) error {
-		names = append(names, svc.Name)
-		return nil
-	}); err != nil {
+	plan, err := newDependencyPlan(c.project, svcs, false)
+	if err != nil {
 		return nil, err
 	}
-	return names, nil
+	return plan.order, nil
 }

@@ -72,41 +72,29 @@ func (c *Composer) Up(ctx context.Context, uo UpOptions, services []string) erro
 		}
 	}
 
+	plan, err := newDependencyPlan(c.project, services, uo.NoDeps)
+	if err != nil {
+		return err
+	}
+
+	for _, warning := range implicitDependencies(c.project, plan) {
+		log.G(ctx).Warn(warning.String())
+	}
+
 	var parsedServices []*serviceparser.Service
-	// use WithServices to sort the services in dependency order
-	forEachFn := func(name string, svc *types.ServiceConfig) error {
+	for _, name := range plan.order {
+		svc := plan.services[name]
 		if replicas, ok := uo.Scale[svc.Name]; ok {
 			if svc.Deploy == nil {
 				svc.Deploy = &types.DeployConfig{}
 			}
 			svc.Deploy.Replicas = &replicas
 		}
-		ps, err := serviceparser.Parse(c.project, *svc)
+		ps, err := serviceparser.Parse(c.project, svc)
 		if err != nil {
 			return err
 		}
 		parsedServices = append(parsedServices, ps)
-		return nil
-	}
-	var dependencyOptions []types.DependencyOption
-	if uo.NoDeps {
-		dependencyOptions = append(dependencyOptions, types.IgnoreDependencies)
-	}
-	err := c.project.ForEachService(services, forEachFn, dependencyOptions...)
-	if err != nil {
-		return err
-	}
-
-	for shortName := range c.project.Networks {
-		if err := c.upNetwork(ctx, shortName); err != nil {
-			return err
-		}
-	}
-
-	for shortName := range c.project.Volumes {
-		if err := c.upVolume(ctx, shortName); err != nil {
-			return err
-		}
 	}
 
 	// remove orphan containers before the service has be started
@@ -125,7 +113,7 @@ func (c *Composer) Up(ctx context.Context, uo UpOptions, services []string) erro
 		}
 	}
 
-	return c.upServices(ctx, parsedServices, uo)
+	return c.upServices(ctx, plan, parsedServices, uo)
 }
 
 func validateFileObjectConfig(obj types.FileObjectConfig, shortName, objType string, project *types.Project) error {

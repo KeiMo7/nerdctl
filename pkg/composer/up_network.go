@@ -26,14 +26,14 @@ import (
 	"github.com/containerd/nerdctl/v2/pkg/reflectutil"
 )
 
-func (c *Composer) upNetwork(ctx context.Context, shortName string) error {
+func (c *Composer) upNetwork(ctx context.Context, shortName string) (bool, error) {
 	net, ok := c.project.Networks[shortName]
 	if !ok {
-		return fmt.Errorf("invalid network name %q", shortName)
+		return false, fmt.Errorf("invalid network name %q", shortName)
 	}
 	if net.External {
 		// NOP
-		return nil
+		return false, nil
 	}
 
 	if unknown := reflectutil.UnknownNonEmptyFields(&net, "Name", "Ipam", "Driver", "DriverOpts"); len(unknown) > 0 {
@@ -44,7 +44,7 @@ func (c *Composer) upNetwork(ctx context.Context, shortName string) error {
 	fullName := net.Name
 	netExists, err := c.NetworkExists(fullName)
 	if err != nil {
-		return err
+		return false, err
 	} else if !netExists {
 		log.G(ctx).Infof("Creating network %s", fullName)
 		//add metadata labels to network https://github.com/compose-spec/compose-spec/blob/master/spec.md#labels-1
@@ -90,8 +90,9 @@ func (c *Composer) upNetwork(ctx context.Context, shortName string) error {
 		}
 
 		if err := c.runNerdctlCmd(ctx, append([]string{"network", "create"}, createArgs...)...); err != nil {
-			return err
+			return false, err
 		}
+		return true, nil
 	}
-	return nil
+	return false, nil
 }
